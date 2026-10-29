@@ -32,6 +32,11 @@ starts a flow; it tells the user to run `claude auth login`.
 
 Inherited API-key, proxy, Bedrock, Vertex, and Foundry overrides are rejected
 to avoid silently changing authentication or billing.
+This fork also accepts explicit LiteLLM URL and key settings. The local relay
+uses the gateway as its upstream, and Claude Code adds the separate
+`x-litellm-api-key` header without replacing its subscription OAuth header.
+The gateway key is part of the worker fingerprint, so changing it starts a
+new worker. Gateway failures do not fall back to a direct Anthropic request.
 
 ## Usage-credit guard
 

@@ -1,5 +1,8 @@
 # pi-claude-code
 
+This fork of [earendil-works/pi-claude-code](https://github.com/earendil-works/pi-claude-code)
+adds explicit LiteLLM routing for Kronk. Other behavior stays with the upstream implementation.
+
 This Pi extension lets you use your Claude Pro or Max subscription in Pi by
 routing all Claude model requests through the official Claude Code CLI.
 
@@ -38,7 +41,7 @@ execution. Claude Code only talks to the model. It never runs tools itself.
 ## Installation
 
 ```sh
-pi install https://github.com/earendil-works/pi-claude-code
+pi install https://github.com/adaminglehart/pi-claude-code
 ```
 
 Then pick a model from the **Claude Code Subscription (Experimental)** provider
@@ -69,6 +72,27 @@ These environment variables are optional:
 - `PI_CLAUDE_CODE_CONFIG_DIR`: Claude Code config directory to use. The
   extension passes it to Claude Code as `CLAUDE_CONFIG_DIR`.
 
+### LiteLLM routing
+
+Set both `PI_CLAUDE_CODE_LITELLM_BASE_URL` and
+`PI_CLAUDE_CODE_LITELLM_API_KEY` to route model requests through LiteLLM.
+Use an HTTPS root URL, such as `https://litellm.example.com`, without `/v1`
+or `/anthropic`. Loopback HTTP is permitted for local checks.
+
+The relay sends requests to this gateway instead of directly to Anthropic.
+Claude Code still owns the subscription login and token refresh. Its OAuth
+token stays in the `Authorization` header. The gateway key is sent separately
+in `x-litellm-api-key`. Existing custom headers are retained.
+
+Only use a trusted gateway: it receives the subscription token and request
+content. Configure a direct `anthropic/*` route and permit that route on the
+gateway key. Do not configure an Anthropic API key on this route. See the
+[LiteLLM subscription guide](https://docs.litellm.ai/docs/tutorials/claude_code_max_subscription).
+
+With neither setting, requests go directly to Anthropic as before. Setting
+only one is an error. A gateway error does not cause a direct Anthropic retry.
+The API-key, backend, and usage-credit guards remain enabled.
+
 ## Usage and billing
 
 Requests made through this extension count against your Claude subscription's
@@ -77,7 +101,8 @@ extension does not give you separate or unlimited usage.
 
 To avoid silently changing how you're authenticated or billed, the extension
 refuses to run if your environment sets an API key, proxy, Bedrock, Vertex, or
-Foundry override for Claude Code.
+Foundry override for Claude Code. The explicit LiteLLM settings above are the
+only supported gateway exception in this fork.
 
 ## Limitations
 

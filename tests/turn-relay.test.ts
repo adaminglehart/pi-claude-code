@@ -16,11 +16,16 @@ function listen(server: http.Server): Promise<number> {
 test("relays one upstream Messages request and captures its SSE response", async () => {
   const upstreamBodies: string[] = [];
   const upstreamBetas: string[] = [];
+  const upstreamAuth: Array<{ subscription: string; gateway: string }> = [];
   const upstream = http.createServer(async (request, response) => {
     let body = "";
     for await (const chunk of request) body += chunk;
     upstreamBodies.push(body);
     upstreamBetas.push(String(request.headers["anthropic-beta"] ?? ""));
+    upstreamAuth.push({
+      subscription: String(request.headers.authorization ?? ""),
+      gateway: String(request.headers["x-litellm-api-key"] ?? ""),
+    });
     response.writeHead(200, { "content-type": "text/event-stream", "request-id": "req_test" });
     const usage = {
       input_tokens: 2,
@@ -52,7 +57,11 @@ test("relays one upstream Messages request and captures its SSE response", async
     const baseUrl = await relay.start();
     const first = await fetch(`${baseUrl}/v1/messages`, {
       method: "POST",
-      headers: { "anthropic-beta": "existing-test" },
+      headers: {
+        "anthropic-beta": "existing-test",
+        authorization: "Bearer test-subscription",
+        "x-litellm-api-key": "Bearer test-gateway",
+      },
       body: "{}",
     });
     assert.equal(first.status, 200);
@@ -65,6 +74,7 @@ test("relays one upstream Messages request and captures its SSE response", async
     assert.deepEqual(JSON.parse(upstreamBodies[0]!), { rewritten: true });
     assert.deepEqual(JSON.parse(relay.originalRequestBody!.toString("utf8")), {});
     assert.equal(upstreamBetas[0], "existing-test,native-tools-test");
+    assert.deepEqual(upstreamAuth[0], { subscription: "Bearer test-subscription", gateway: "Bearer test-gateway" });
     assert.equal(relay.used, true);
     assert.equal(relay.denied, 1);
     assert.equal(relay.capture.complete, true);

@@ -10,6 +10,7 @@ import { registerSessionResourceCleanup } from "@earendil-works/pi-ai";
 import { TurnRelay } from "./turn-relay.ts";
 import { usageCreditsAllowed, usageCreditsChargeError, type RateLimitInfo } from "./billing.ts";
 import { envFlagEnabled } from "./env.ts";
+import { litellmConfig } from "./litellm.ts";
 import type { DiscoveredClaudeModel } from "./model-catalog.ts";
 import type {
   AnthropicStreamEvent,
@@ -430,6 +431,14 @@ function processEnvironment(
     throw new Error(`Claude Code subscription provider refuses conflicting auth/backend overrides: ${conflicts.join(", ")}`);
   }
   delete env.CLAUDE_CODE_EXTRA_BODY;
+  const gateway = litellmConfig(env);
+  if (gateway) {
+    const headers = env.ANTHROPIC_CUSTOM_HEADERS ?? "";
+    if (/^\s*x-litellm-api-key\s*:/imu.test(headers)) {
+      throw new Error("Set the LiteLLM key only through PI_CLAUDE_CODE_LITELLM_API_KEY.");
+    }
+    env.ANTHROPIC_CUSTOM_HEADERS = [headers, `x-litellm-api-key: Bearer ${gateway.apiKey}`].filter(Boolean).join("\n");
+  }
   Object.assign(env, {
     ENABLE_TOOL_SEARCH: "false",
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
@@ -680,6 +689,7 @@ interface ClaudeLaunchPlan {
   env: Record<string, string>;
   fingerprint: string;
   timeoutMs: number;
+  upstreamUrl: string;
 }
 
 function canonicalJson(value: unknown): string {
@@ -709,9 +719,11 @@ function frameHistoryHash(frames: NativeFrame[]): string {
 function launchPlan(input: RunClaudeInput): ClaudeLaunchPlan {
   const timeoutMs = input.timeoutMs ?? 180_000;
   const env = processEnvironment(input.env, input.extraBody);
+  const upstreamUrl = litellmConfig(env)?.baseUrl ?? input.upstreamUrl ?? "https://api.anthropic.com";
   return {
     env,
     timeoutMs,
+    upstreamUrl,
     fingerprint: digest({
       command: configuredCommand(env),
       cwd: resolve(input.cwd ?? process.cwd()),
@@ -721,7 +733,7 @@ function launchPlan(input: RunClaudeInput): ClaudeLaunchPlan {
       model: input.model,
       systemPrompt: input.systemPrompt,
       timeoutMs,
-      upstreamUrl: input.upstreamUrl ?? "https://api.anthropic.com",
+      upstreamUrl,
     }),
   };
 }
@@ -769,7 +781,7 @@ class ClaudeProcess {
         writeFile(systemPath, input.systemPrompt, "utf8"),
       ]);
 
-      relay = new TurnRelay(input.upstreamUrl ?? "https://api.anthropic.com", plan.timeoutMs);
+      relay = new TurnRelay(plan.upstreamUrl, plan.timeoutMs);
       const env = { ...plan.env, ANTHROPIC_BASE_URL: await relay.start() };
       const mcp = {
         mcpServers: {
