@@ -71,15 +71,19 @@ const FALLBACK_DISCOVERY: DiscoveredClaudeModel[] = [
   },
   {
     value: "haiku",
-    resolvedModel: "claude-haiku-4-5-20251001",
+    resolvedModel: "claude-haiku-5-5",
     displayName: "Haiku",
-    description: "Haiku 4.5 · Fastest for quick answers",
+    description: "Haiku 5.5 · Fastest for quick answers",
+    supportsEffort: true,
+    supportedEffortLevels: ["low", "medium", "high", "xhigh", "max"],
+    supportsAdaptiveThinking: true,
+    supportsAutoMode: true,
   },
 ];
 
 const ALIASES: Record<string, string> = {
   sonnet: "claude-sonnet-5",
-  haiku: "claude-haiku-4-5-20251001",
+  haiku: "claude-haiku-5-5",
   "claude-haiku-4-5": "claude-haiku-4-5-20251001",
   opus: "claude-opus-5-5",
   fable: "claude-fable-5-1",

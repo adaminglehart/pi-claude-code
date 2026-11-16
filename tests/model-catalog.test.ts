@@ -15,7 +15,7 @@ test("fallback catalog matches Claude Code's selectable model families", () => {
       "claude-opus-5-5",
       "claude-fable-5-1",
       "claude-sonnet-5",
-      "claude-haiku-4-5-20251001",
+      "claude-haiku-5-5",
     ],
   );
   assert.equal(nativeModel("default"), "default");
